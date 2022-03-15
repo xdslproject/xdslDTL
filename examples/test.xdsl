@@ -1,0 +1,11 @@
+module() {
+  dtl.lambda() ["return_type" = !dtl.tensor<!int<2>>] {
+    ^BB0(%x: !dtl.tensor<!int<2>>):
+      %res: !dtl.tensor<!int<2>> = dtl.deindex() {
+        ^BB1(%i: !dtl.index, %j: !dtl.index):
+        %x_ij: !dtl.scalar = dtl.index(%x: !dtl.tensor<!int<2>>, %j: !dtl.index, %i: !dtl.index)
+        dtl.deindex_yield(%x_ij: !dtl.scalar)
+      }
+      dtl.return(%res: !dtl.tensor<!int<2>>)
+  }
+}
