@@ -100,6 +100,9 @@ class DeIndexOp(Operation):
                 f"{DeIndexYieldOp.name} expected as last operation of a {DeIndexOp.name} node"
             )
 
+    def get_ssa_indices(self):
+        return self.body.blocks[0].args
+
 
 @irdl_op_definition
 class DeIndexYieldOp(Operation):
