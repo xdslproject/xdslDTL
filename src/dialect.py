@@ -81,6 +81,24 @@ class DeIndexOp(Operation):
     body = SingleBlockRegionDef()
     res = ResultDef(TensorType)
 
+    def verify_(self):
+        if len(self.body.blocks[0].args) != len(self.res.typ.dims.data):
+            raise Exception(
+                f"An {DeIndexOp.name} should return a tensor with as many dimensions as the index it produces"
+            )
+        for (idx, tensor_idx) in zip(self.body.blocks[0].args,
+                                     self.res.typ.dims.data):
+            if idx.typ.dim.data != tensor_idx.data:
+                raise Exception(
+                    f"Index of size {idx.typ.dim.data} do not match with dimension of size {tensor_idx.data}"
+                )
+
+        ret = self.body.ops[-1]
+        if not isinstance(ret, DeIndexYieldOp):
+            raise Exception(
+                f"{DeIndexYieldOp.name} expected as last operation of a {DeIndexOp.name} node"
+            )
+
 
 @irdl_op_definition
 class DeIndexYieldOp(Operation):
