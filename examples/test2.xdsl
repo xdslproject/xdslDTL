@@ -1,0 +1,16 @@
+module() {
+  dtl.lambda() ["func_name" = "foo", "return_type" = !dtl.tensor<["P", "Q"]>] {
+    ^BB0(%x: !dtl.tensor<["P", "Q"]>):
+      %res: !dtl.tensor<["P", "Q"]> = dtl.deindex() {
+        ^BB1(%i: !dtl.index<"P">, %j: !dtl.index<"Q">):
+          %y: !dtl.tensor<["Q", "P"]> = dtl.deindex() {
+            ^BB2(%i2: !dtl.index<"Q">, %j2: !dtl.index<"P">):
+              %x_ij: !dtl.scalar = dtl.index(%x: !dtl.tensor<["P", "Q"]>, %j2: !dtl.index<"P">, %i2: !dtl.index<"Q">)
+              dtl.deindex_yield(%x_ij: !dtl.scalar)
+          }
+          %y_ij: !dtl.scalar = dtl.index(%y: !dtl.tensor<["Q", "P"]>, %j: !dtl.index<"Q">, %i: !dtl.index<"P">)
+          dtl.deindex_yield(%y_ij: !dtl.scalar)
+      }
+      dtl.return(%res: !dtl.tensor<["P", "Q"]>)
+  }
+}
