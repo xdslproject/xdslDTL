@@ -28,6 +28,7 @@ class LambdaOp(Operation):
 
     inputs = VarOperandDef(TensorType)
     return_type = AttributeDef(TensorType)
+    func_name = AttributeDef(StringAttr)
     body = SingleBlockRegionDef()
 
     def verify_(self):
