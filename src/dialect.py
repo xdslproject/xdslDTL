@@ -7,12 +7,14 @@ from dataclasses import dataclass
 class IndexType(ParametrizedAttribute):
     name = "dtl.index"
 
+    dim = ParameterDef(StringAttr)
+
 
 @irdl_attr_definition
 class TensorType(ParametrizedAttribute):
     name = "dtl.tensor"
 
-    num_dim = ParameterDef(IntAttr)
+    dims = ParameterDef(ArrayOfConstraint(AnyOf([StringAttr, IntAttr])))
 
 
 @irdl_attr_definition
@@ -28,12 +30,28 @@ class LambdaOp(Operation):
     return_type = AttributeDef(TensorType)
     body = SingleBlockRegionDef()
 
+    def verify_(self):
+        ret = self.body.ops[-1]
+        if not isinstance(ret, LambdaYieldOp):
+            raise Exception(
+                f"{LambdaYieldOp.name} expected as last operation of a {LambdaOp.name} node"
+            )
+        if ret.op.typ != self.return_type:
+            raise Exception(
+                f"{LambdaOp.name} should have a {LambdaYieldOp.name} with the same return type"
+            )
+
 
 @irdl_op_definition
-class ReturnOp(Operation):
+class LambdaYieldOp(Operation):
     name = "dtl.return"
 
     op = OperandDef(TensorType)
+
+    def verify_(self):
+        if not isinstance(self.parent.parent.parent, LambdaOp):
+            raise Exception(
+                f"Parent of {LambdaYieldOp.name} should be a {LambdaOp.name}")
 
 
 @irdl_op_definition
@@ -43,6 +61,17 @@ class IndexOp(Operation):
     tensor = OperandDef(TensorType)
     indices = VarOperandDef(IndexType)
     res = ResultDef(ScalarType)
+
+    def verify_(self):
+        if len(self.indices) != len(self.tensor.typ.dims.data):
+            raise Exception(
+                f"An {IndexOp.name} should index a tensor with as many indices as its dimension"
+            )
+        for (idx, tensor_idx) in zip(self.indices, self.tensor.typ.dims.data):
+            if idx.typ.dim.data != tensor_idx.data:
+                raise Exception(
+                    f"Index of size {idx.typ.dim.data} do not match with dimension of size {tensor_idx.data}"
+                )
 
 
 @irdl_op_definition
@@ -70,7 +99,7 @@ class DTL:
         self.ctx.register_attr(ScalarType)
 
         self.ctx.register_op(LambdaOp)
-        self.ctx.register_op(ReturnOp)
+        self.ctx.register_op(LambdaYieldOp)
         self.ctx.register_op(IndexOp)
         self.ctx.register_op(DeIndexOp)
         self.ctx.register_op(DeIndexYieldOp)
