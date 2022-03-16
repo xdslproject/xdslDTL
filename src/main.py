@@ -39,6 +39,5 @@ if __name__ == "__main__":
     if not (isinstance(module, ModuleOp)):
         raise Exception(
             "Expected module or program as toplevel operation")
-    transform_dtl(ctx, module)
     printer = Printer()
     printer.print_op(module)
