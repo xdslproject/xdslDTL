@@ -42,6 +42,9 @@ class LambdaOp(Operation):
                 f"{LambdaOp.name} should have a {LambdaYieldOp.name} with the same return type"
             )
 
+    def get_inputs(self):
+        return self.body.blocks[0].args
+
 
 @irdl_op_definition
 class LambdaYieldOp(Operation):
