@@ -6,15 +6,15 @@ from dataclasses import dataclass
 @irdl_attr_definition
 class IndexType(ParametrizedAttribute):
     name = "dtl.index"
-
-    dim = ParameterDef(StringAttr)
+    
+    dim: ParameterDef[StringAttr]
 
 
 @irdl_attr_definition
 class TensorType(ParametrizedAttribute):
     name = "dtl.tensor"
 
-    dims = ParameterDef(ArrayOfConstraint(AnyOf([StringAttr, IntAttr])))
+    dims: ParameterDef[ArrayAttr[StringAttr | IntAttr]]
 
 
 @irdl_attr_definition
@@ -30,7 +30,7 @@ class LambdaOp(Operation):
     return_type = AttributeDef(TensorType)
     func_name = AttributeDef(StringAttr)
     body = SingleBlockRegionDef()
-
+    
     def verify_(self):
         ret = self.body.ops[-1]
         if not isinstance(ret, LambdaYieldOp):
@@ -114,6 +114,69 @@ class DeIndexYieldOp(Operation):
     op = OperandDef(ScalarType)
 
 
+
+@irdl_op_definition
+class SumOp(Operation):
+    name = "dtl.sum"
+
+    body = SingleBlockRegionDef()
+    res = ResultDef(ScalarType)
+
+    def verify_(self):
+        if len(self.body.blocks[0].args) == 0:
+            raise Exception(
+                f"A {SumOp.name} should sum over at least one index"
+            )
+        for idx in self.body.blocks[0].args:
+            if not isinstance(idx.typ, IndexType):
+                raise Exception(f"A {SumOp.name} may only sum over an Indextype (args of enclosed Block)")
+        # if len(self.body.blocks[0].args) != len(self.res.typ.dims.data):
+        #     raise Exception(
+        #         f"A {SumOp.name} should return a tensor with as many dimensions as the index it produces"
+        #     )
+        # for (idx, tensor_idx) in zip(self.body.blocks[0].args,
+        #                              self.res.typ.dims.data):
+        #     if idx.typ.dim.data != tensor_idx.data:
+        #         raise Exception(
+        #             f"Index of size {idx.typ.dim.data} do not match with dimension of size {tensor_idx.data}"
+        #         )
+
+        ret = self.body.ops[-1]
+        if not isinstance(ret, SumYieldOp):
+            raise Exception(
+                f"{SumYieldOp.name} expected as last operation of a {SumOp.name} node"
+            )
+
+    def get_ssa_indices(self):
+        return self.body.blocks[0].args
+
+
+@irdl_op_definition
+class SumYieldOp(Operation):
+    name = "dtl.sum_yield"
+
+    op = OperandDef(ScalarType)
+
+
+
+@irdl_op_definition
+class ScalarAddOp(Operation):
+    name = "dtl.scalarAdd"
+
+    lhs = OperandDef(ScalarType)
+    rhs = OperandDef(ScalarType)
+    res = ResultDef(ScalarType)
+    
+
+@irdl_op_definition
+class ScalarMulOp(Operation):
+    name = "dtl.scalarMul"
+
+    lhs = OperandDef(ScalarType)
+    rhs = OperandDef(ScalarType)
+    res = ResultDef(ScalarType)
+
+
 @dataclass
 class DTL:
     ctx: MLContext
@@ -126,5 +189,9 @@ class DTL:
         self.ctx.register_op(LambdaOp)
         self.ctx.register_op(LambdaYieldOp)
         self.ctx.register_op(IndexOp)
+        self.ctx.register_op(ScalarAddOp)
+        self.ctx.register_op(ScalarMulOp)
         self.ctx.register_op(DeIndexOp)
         self.ctx.register_op(DeIndexYieldOp)
+        self.ctx.register_op(SumOp)
+        self.ctx.register_op(SumYieldOp)

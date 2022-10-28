@@ -1,0 +1,17 @@
+builtin.module() {
+  dtl.lambda() ["func_name" = "foo", "return_type" = !dtl.tensor<["P", "R"]>] {
+    ^BB0(%x: !dtl.tensor<["P", "Q"]>, %y: !dtl.tensor<["Q", "R"]>):
+      %res: !dtl.tensor<["P", "R"]> = dtl.deindex() {
+        ^BB1(%i: !dtl.index<"P">, %k: !dtl.index<"R">):
+        %sum_ik: !dtl.scalar = dtl.sum() {
+          ^BB2(%j: !dtl.index<"Q">):
+          %x_ij: !dtl.scalar = dtl.index(%x: !dtl.tensor<["P", "Q"]>, %i: !dtl.index<"P">, %j: !dtl.index<"Q">)
+          %y_jk: !dtl.scalar = dtl.index(%y: !dtl.tensor<["Q", "R"]>, %j: !dtl.index<"Q">, %k: !dtl.index<"R">)
+          %out_ik: !dtl.scalar = dtl.scalarMul(%x_ij: !dtl.scalar, %y_jk: !dtl.scalar)
+          dtl.sum_yield(%out_ik: !dtl.scalar)
+        }
+        dtl.deindex_yield(%sum_ik: !dtl.scalar)
+      }
+      dtl.return(%res: !dtl.tensor<["P", "R"]>)
+  }
+}

@@ -68,6 +68,30 @@ class LowerToPython:
 
         self.indent = old_indent
         return res
+    
+
+    def lower_sum(self, sum: SumOp) -> str:
+        # Allocate the new tensor
+        new_name = self.get_new_name("SUM")
+        self.names[sum.res] = new_name
+        indices = [idx.typ.dim.data for idx in sum.get_ssa_indices()]
+        res = f"{new_name} = 0"
+        res += self.new_line()
+        old_indent = self.indent
+
+        # for loops to assign the indices
+        for idx in sum.get_ssa_indices():
+            idx_name = self.get_new_name("s")
+            self.names[idx] = idx_name
+            res += f"for {idx_name} in range({idx.typ.dim.data}):"
+            self.indent += 1
+            res += self.new_line()
+
+        for op in sum.body.ops:
+            res += self.lower_op(op)
+
+        self.indent = old_indent
+        return res
 
     def lower_index(self, op: IndexOp) -> str:
         self.names[op.res] = self.get_new_name("index")
@@ -75,6 +99,24 @@ class LowerToPython:
         res += f"{self.names[op.tensor]}"
         for idx in op.indices:
             res += f"[{self.names[idx]}]"
+        res += self.new_line()
+        return res
+    
+    def lower_scalar_add(self, op: ScalarAddOp) -> str:
+        self.names[op.res] = self.get_new_name("add")
+        res = f"{self.names[op.res]} = "
+        res += f"{self.names[op.lhs]}"
+        res += f"+"
+        res += f"{self.names[op.rhs]}"
+        res += self.new_line()
+        return res
+    
+    def lower_scalar_mul(self, op: ScalarMulOp) -> str:
+        self.names[op.res] = self.get_new_name("mul")
+        res = f"{self.names[op.res]} = "
+        res += f"{self.names[op.lhs]}"
+        res += f"*"
+        res += f"{self.names[op.rhs]}"
         res += self.new_line()
         return res
 
@@ -87,6 +129,16 @@ class LowerToPython:
         res += f" = {self.names[op.op]}"
         self.indent -= len(deindex_parent.get_ssa_indices())
         return res + self.new_line()
+    
+    def lower_sum_yield(self, op: SumYieldOp) -> str:
+        sum_parent = op.parent.parent.parent
+        res = self.names[sum_parent.res]
+        # indices =  sum_parent.get_ssa_indices()
+        # for index in indices:
+        #     res += f"[{self.names[index]}]"
+        res += f" += {self.names[op.op]}"
+        self.indent -= len(sum_parent.get_ssa_indices())
+        return res + self.new_line()
 
     def lower_op(self, op: Operation) -> str:
         if isinstance(op, DeIndexOp):
@@ -97,5 +149,13 @@ class LowerToPython:
             return self.lower_index(op)
         if isinstance(op, DeIndexYieldOp):
             return self.lower_deindex_yield(op)
+        if isinstance(op, ScalarAddOp):
+            return self.lower_scalar_add(op)
+        if isinstance(op, ScalarMulOp):
+            return self.lower_scalar_mul(op)
+        if isinstance(op, SumOp):
+            return self.lower_sum(op)
+        if isinstance(op, SumYieldOp):
+            return self.lower_sum_yield(op)
         return f"error {op.name}" + self.new_line()
 

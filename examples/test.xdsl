@@ -1,4 +1,4 @@
-module() {
+builtin.module() {
   dtl.lambda() ["func_name" = "foo", "return_type" = !dtl.tensor<["Q", "P"]>] {
     ^BB0(%x: !dtl.tensor<["P", "Q"]>):
       %res: !dtl.tensor<["Q", "P"]> = dtl.deindex() {
