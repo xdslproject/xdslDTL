@@ -1,0 +1,6 @@
+builtin.module() {
+%v: !f32 = arith.constant()["value"=0.1:!f64]
+%vsi : !i64 = arith.constant()["value"=4:!i64]
+%i1: !dtl.tensorExprType<!dtl.indexToVectorSpaceMap<[]>,!dtl.IndexShapeStruct<[]>> = dtl.const(%v:!f32)
+%i2: !dtl.tensorExprType<!dtl.indexToVectorSpaceMap<[!dtl.indexToVectorSpaceMapPair<!dtl.index<"i">, !dtl.KnownVectorSpace<!int<0>>>,!dtl.indexToVectorSpaceMapPair<!dtl.index<"z">, !dtl.KnownVectorSpace<!int<0>>>]>,!dtl.IndexShapeStruct<[]>> = dtl.bind(%i1 : !dtl.tensorExprType<!dtl.indexToVectorSpaceMap<[]>,!dtl.IndexShapeStruct<[]>>)["indices_map" = !dtl.indexToVectorSpaceMap<[!dtl.indexToVectorSpaceMapPair<!dtl.index<"i">, !dtl.KnownVectorSpace<!int<0>>>,!dtl.indexToVectorSpaceMapPair<!dtl.index<"z">, !dtl.KnownVectorSpace<!int<0>>>]>]
+}

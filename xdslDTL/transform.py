@@ -96,25 +96,27 @@ class DeIndexOpRewriter(RewritePattern):
         rewriter.replace_op(deindex_op, new_ops)
 
 
-@dataclass
-class LambdaRewriter():
-
-    @op_type_rewrite_pattern
-    def match_and_rewrite(self, lambda_op: LambdaOp,
-                          rewriter: PatternRewriter):
-        outer_len = tensor_shape[
-            lambda_op.body.blocks[0].args[0].typ.parameters[0].data[0].data]
-        inner_len = tensor_shape[
-            lambda_op.body.blocks[0].args[0].typ.parameters[0].data[1].data]
-        type_ = memref.MemRefType.from_type_and_list(IntAttr.from_int(2),
-                                                     [outer_len, inner_len])
-
-        lambda_op.body.blocks[0].args[0].typ = type_
+# @dataclass
+# class LambdaRewriter():
+#
+#     @op_type_rewrite_pattern
+#     def match_and_rewrite(self, lambda_op: LambdaOp,
+#                           rewriter: PatternRewriter):
+#         outer_len = tensor_shape[
+#             lambda_op.body.blocks[0].args[0].typ.parameters[0].data[0].data]
+#         inner_len = tensor_shape[
+#             lambda_op.body.blocks[0].args[0].typ.parameters[0].data[1].data]
+#         type_ = memref.MemRefType.from_type_and_list(IntAttr.from_int(2),
+#                                                      [outer_len, inner_len])
+#
+#         lambda_op.body.blocks[0].args[0].typ = type_
 
 
 def transform_dtl(ctx: MLContext, op: Operation):
     applier = PatternRewriteWalker(GreedyRewritePatternApplier(
-        [DeIndexOpRewriter(), LambdaRewriter(), IndexRewriter()]),
+        [DeIndexOpRewriter(),
+         # LambdaRewriter(),
+         IndexRewriter()]),
                                    walk_regions_first=False)
 
     applier.rewrite_module(op)

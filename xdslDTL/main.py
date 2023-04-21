@@ -6,7 +6,7 @@ import os
 import sys
 from io import StringIO, IOBase
 
-from src.lower_to_python import lower_to_python
+# from xdslDTL.lower_to_python import lower_to_python
 from xdsl.parser import Parser
 from xdsl.printer import Printer
 from xdsl.ir import MLContext
@@ -36,7 +36,8 @@ class OptMain(xDSLOptMain):
     def register_all_targets(self):
         super().register_all_targets()
         def lower_to_python_func(prog: ModuleOp, output: IOBase):
-            string = lower_to_python(prog)
+            # string = lower_to_python(prog)
+            string = "nah"
             output.write(string)
         self.available_targets['py'] = lower_to_python_func
 
@@ -45,11 +46,15 @@ class OptMain(xDSLOptMain):
 
 
 def __main__():
+    print("main2")
     xdsl_main = OptMain()
+    print("main3")
     xdsl_main.run()
+    print("main4")
 
 
 if __name__ == "__main__":
+    print("main1")
     __main__()
 #
 # if __name__ == "__main__":
