@@ -120,7 +120,7 @@ IndexingStruct: TypeAlias = IndexStruct[Index | NoneIndex]
 DeIndexingStruct: TypeAlias = IndexStruct[Index | VectorSpace]
 
 @irdl_op_definition
-class IndexBindingOp(Operation):
+class IndexBindingOp(IRDLOperation):
     name : str = "dtl.bind"
 
     expr: Annotated[Operand, TensorExprType]
@@ -139,7 +139,7 @@ def matchTensorTupleStructures(typeResult: TensorResultType, indexStruct: IndexS
     return False
 
 @irdl_op_definition
-class IndexOp(Operation):
+class IndexOp(IRDLOperation):
     name : str = "dtl.index"
 
     expr: Annotated[Operand, TensorExprType]
@@ -163,7 +163,7 @@ class IndexOp(Operation):
 
 
 @irdl_op_definition
-class DeIndexOp(Operation):
+class DeIndexOp(IRDLOperation):
     name : str = "dtl.deindex"
     
     expr: Annotated[Operand, TensorExprType]
@@ -194,7 +194,7 @@ class DeIndexOp(Operation):
 
 
 @irdl_op_definition
-class SumOp(Operation):
+class SumOp(IRDLOperation):
     name : str = "dtl.sum"
     
     expr: Annotated[Operand, TensorExprType]
@@ -211,7 +211,7 @@ class SumOp(Operation):
 
 
 @irdl_op_definition
-class ScalarAddOp(Operation):
+class ScalarAddOp(IRDLOperation):
     name : str = "dtl.scalarAdd"
     
     lhs: Annotated[Operand, TensorExprType]
@@ -223,7 +223,7 @@ class ScalarAddOp(Operation):
 
 
 @irdl_op_definition
-class ScalarMulOp(Operation):
+class ScalarMulOp(IRDLOperation):
     name : str = "dtl.scalarMul"
     
     lhs: Annotated[Operand, TensorExprType]
@@ -235,7 +235,7 @@ class ScalarMulOp(Operation):
 
 
 @irdl_op_definition
-class ScalarConstOp(Operation):
+class ScalarConstOp(IRDLOperation):
     name : str = "dtl.const"
     
     val: Annotated[Operand, builtin.AnyFloat]
@@ -257,7 +257,7 @@ class ScalarConstOp(Operation):
 
 
 @irdl_op_definition
-class TupleOp(Operation):
+class TupleOp(IRDLOperation):
     name: str = "dtl.tuple"
     
     arguments: Annotated[VarOperand, TensorExprType]
@@ -270,7 +270,7 @@ class TupleOp(Operation):
 
 
 @irdl_op_definition
-class IndexedTupleOp(Operation):
+class IndexedTupleOp(IRDLOperation):
     name: str = "dtl.indexedTuple"
     
     tuple: Annotated[Operand, TensorExprType]
