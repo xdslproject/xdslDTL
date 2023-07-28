@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import builtins
-from xdsl.dialects import builtin, arith
-from xdsl.ir import _PA, MLContext
+from typing import Type
+
+from xdsl.dialects import builtin, arith, memref
+from xdsl.ir import MLContext
 from xdsl.irdl import *
 from xdsl.dialects.builtin import *
 from dataclasses import dataclass
@@ -133,13 +135,13 @@ DeIndexingStruct: TypeAlias = IndexStruct[Index | VectorSpace]
 class IndexBindingOp(IRDLOperation):
     name = "dtl.bind"
 
-    expr: Annotated[Operand, TensorExprType]
-    indices_map: OpAttr[IndexToVectorSpaceMap]
-    result: Annotated[OpResult, TensorExprType]
+    expr: TensorExprType = operand_def(TensorExprType)
+    indices_map: IndexToVectorSpaceMap = attr_def(IndexToVectorSpaceMap)
+    result: TensorExprType = result_def(TensorExprType)
 
     def verify_(self):
         for idx in self.indices_map.indices():
-            if idx in self.expr.typ.args.indices():
+            if idx in self.expr.type.args.indices():
                 raise Exception(
                     f"An {IndexBindingOp.name} should can only bind indices that are not already bound in its subexpression. {idx} is already bound in {self.expr}"
                 )
@@ -213,24 +215,24 @@ def matchTensorTupleStructures(expr_type: TensorResultType, result_type: TensorR
 class IndexOp(IRDLOperation):
     name = "dtl.indexOp"
 
-    expr: Annotated[Operand, TensorExprType]
-    indices: OpAttr[IndexingStruct]
-    result: Annotated[OpResult, TensorExprType]
+    expr: TensorExprType = operand_def(TensorExprType)
+    indices: IndexingStruct = attr_def(IndexingStruct)
+    result: TensorExprType = result_def(TensorExprType)
 
     def verify_(self):
         self.indices.verify_generic(Index | NoneIndex)
-        assert isa(self.expr.typ, TensorExprType)
-        matchTensorTupleStructures(self.expr.typ.result, self.result.typ.result, self.indices, self.expr.typ.args, indexing=True)
-        assert self.expr.typ.args == self.result.typ.args
+        assert isa(self.expr.type, TensorExprType)
+        matchTensorTupleStructures(self.expr.type.result, self.result.type.result, self.indices, self.expr.type.args, indexing=True)
+        assert self.expr.type.args == self.result.type.args
 
 
 @irdl_op_definition
 class DeIndexOp(IRDLOperation):
     name = "dtl.deindexOp"
 
-    expr: Annotated[Operand, TensorExprType]
-    indices: OpAttr[DeIndexingStruct]
-    result: Annotated[OpResult, TensorExprType]
+    expr: TensorExprType = operand_def(TensorExprType)
+    indices: DeIndexingStruct = attr_def(DeIndexingStruct)
+    result: TensorExprType = result_def(TensorExprType)
 
     def _get_indices(self, struct: DeIndexingStruct) -> [Index]:
         if isinstance(struct, IndexShapeStruct):
@@ -242,35 +244,35 @@ class DeIndexOp(IRDLOperation):
 
     def verify_(self):
         self.indices.verify_generic(Index | VectorSpace)
-        assert isa(self.expr.typ, TensorExprType)
-        matchTensorTupleStructures(self.expr.typ.result, self.result.typ.result, self.indices, self.expr.typ.args, deindexing=True)
+        assert isa(self.expr.type, TensorExprType)
+        matchTensorTupleStructures(self.expr.type.result, self.result.type.result, self.indices, self.expr.type.args, deindexing=True)
         indices = self._get_indices(self.indices)
         assert len(indices) == len(set(i.id.data for i in indices))
-        assert all(i in self.expr.typ.args.indices() for i in indices)
-        unused = [i for i in self.expr.typ.args.indices() if i not in indices]
-        assert unused == self.result.typ.args.indices()
-        assert all(self.expr.typ.args.vector_space_of(i) == self.result.typ.args.vector_space_of(i) for i in unused)
+        assert all(i in self.expr.type.args.indices() for i in indices)
+        unused = [i for i in self.expr.type.args.indices() if i not in indices]
+        assert unused == self.result.type.args.indices()
+        assert all(self.expr.type.args.vector_space_of(i) == self.result.type.args.vector_space_of(i) for i in unused)
 
 @irdl_op_definition
 class SumOp(IRDLOperation):
     name = "dtl.sumOp"
 
-    expr: Annotated[Operand, TensorExprType]
-    indices: OpAttr[ArrayAttr[Index]]
-    result: Annotated[OpResult, TensorExprType]
+    expr: TensorExprType = operand_def(TensorExprType)
+    indices: ArrayAttr[Index] =  attr_def(ArrayAttr[Index])
+    result: TensorExprType = result_def(TensorExprType)
 
     def verify_(self):
         for idx in self.indices:
-            if idx not in self.expr.typ.args.indices():
+            if idx not in self.expr.type.args.indices():
                 raise Exception(f"Sum op can only sum over indices that are arguments in the child expression. Index {idx} not found in {self.expr.typ}")
-            if idx in self.result.typ.args.indices():
+            if idx in self.result.type.args.indices():
                 raise Exception(f"Sum op removes free indices from type. Index {idx} should not appear in result Type {self.result.typ}")
-        assert len(self.indices) + len(self.result.typ.args.indices()) == len(self.expr.typ.args.indices())
-        for idx in self.expr.typ.args.indices():
+        assert len(self.indices) + len(self.result.type.args.indices()) == len(self.expr.type.args.indices())
+        for idx in self.expr.type.args.indices():
             if idx not in self.indices:
-                if idx not in self.result.typ.args.indices():
+                if idx not in self.result.type.args.indices():
                     raise VerifyException("Result type args must include all operand type args minus summed over indicies")
-                if self.expr.typ.args.vector_space_of(idx) != self.result.typ.args.vector_space_of(idx):
+                if self.expr.type.args.vector_space_of(idx) != self.result.type.args.vector_space_of(idx):
                     raise VerifyException("Result type args and operand type args are mismatched")
 
 def _verify_binary_op_types(OpName: str, lhs: TensorExprType, rhs: TensorExprType, result: TensorExprType) -> None:
@@ -297,49 +299,49 @@ def _verify_binary_op_types(OpName: str, lhs: TensorExprType, rhs: TensorExprTyp
 class ScalarAddOp(IRDLOperation):
     name = "dtl.scalarAddOp"
 
-    lhs: Annotated[Operand, TensorExprType]
-    rhs: Annotated[Operand, TensorExprType]
-    result: Annotated[OpResult, TensorExprType]
+    lhs: TensorExprType = operand_def(TensorExprType)
+    rhs: TensorExprType = operand_def(TensorExprType)
+    result: TensorExprType = result_def(TensorExprType)
 
     def verify_(self):
-        _verify_binary_op_types(self.name, self.lhs.typ, self.rhs.typ, self.result.typ)
+        _verify_binary_op_types(self.name, self.lhs.type, self.rhs.type, self.result.type)
 
 @irdl_op_definition
 class ScalarSubOp(IRDLOperation):
     name = "dtl.scalarSubOp"
 
-    lhs: Annotated[Operand, TensorExprType]
-    rhs: Annotated[Operand, TensorExprType]
-    result: Annotated[OpResult, TensorExprType]
+    lhs: TensorExprType = operand_def(TensorExprType)
+    rhs: TensorExprType = operand_def(TensorExprType)
+    result: TensorExprType = result_def(TensorExprType)
 
     def verify_(self):
-        _verify_binary_op_types(self.name, self.lhs.typ, self.rhs.typ, self.result.typ)
+        _verify_binary_op_types(self.name, self.lhs.type, self.rhs.type, self.result.type)
 
 
 @irdl_op_definition
 class ScalarMulOp(IRDLOperation):
     name = "dtl.scalarMulOp"
 
-    lhs: Annotated[Operand, TensorExprType]
-    rhs: Annotated[Operand, TensorExprType]
-    result: Annotated[OpResult, TensorExprType]
+    lhs: TensorExprType = operand_def(TensorExprType)
+    rhs: TensorExprType = operand_def(TensorExprType)
+    result: TensorExprType = result_def(TensorExprType)
 
     def verify_(self):
-        _verify_binary_op_types(self.name, self.lhs.typ, self.rhs.typ, self.result.typ)
+        _verify_binary_op_types(self.name, self.lhs.type, self.rhs.type, self.result.type)
 
 
 @irdl_op_definition
 class ScalarConstOp(IRDLOperation):
     name = "dtl.constOp"
 
-    val: Annotated[Operand, builtin.AnyFloat]
-    result: Annotated[OpResult, TensorExprType]
+    val: builtin.AnyFloat = operand_def(builtin.AnyFloat)
+    result: TensorExprType = result_def(TensorExprType)
 
     def verify_(self):
-        assert isa(self.val.typ, builtin.AnyFloat)
-        assert len(self.result.typ.getIndices()) == 0, "dtl.const:: Type must have no indices"
-        assert isa(self.result.typ.result, IndexShapeStruct[VectorSpace])
-        assert len(self.result.typ.result.shape.data) == 0
+        assert isa(self.val.type, builtin.AnyFloat)
+        assert len(self.result.type.getIndices()) == 0, "dtl.const:: Type must have no indices"
+        assert isa(self.result.type.result, IndexShapeStruct[VectorSpace])
+        assert len(self.result.type.result.shape.data) == 0
 
     @staticmethod
     def get(value: Union[Operation, SSAValue]) -> ScalarConstOp:
@@ -350,16 +352,64 @@ class ScalarConstOp(IRDLOperation):
 
 
 @irdl_op_definition
+class TupleOp(IRDLOperation):
+    name: str = "dtl.tupleOp"
+
+    arguments: VarOperand = var_operand_def(TensorExprType)
+    result: TensorExprType = result_def(TensorExprType)
+
+    def verify_(self):
+        assert isa(self.result.type, TensorExprType)
+        assert isa(self.result.type.result, IndexTupleStruct)
+
+        for i, op in enumerate(self.arguments):
+            if self.result.type.result.children.data[i] != op.type.result:
+                raise VerifyException(f"{self.name}: Result type shape at tuple index {i} expected to be {op.type.result} but found {self.result.type.result.children.data[i]}")
+
+            for idx in op.type.args.indices():
+                if idx not in self.result.type.args.indices():
+                    raise VerifyException(f"{self.name}: tuple index {i} arg {idx} must be in result type args")
+                if op.type.args.vector_space_of(idx) != self.result.type.args.vector_space_of(idx):
+                    raise VerifyException(
+                        f"{self.name}: tuple index {i} arg {idx}:{op.type.args.vector_space_of(idx)} must be in result type args but result has {idx}:{self.result.type.args.vector_space_of(idx)}")
+
+        if len(self.result.type.result.children) != len(self.arguments):
+            raise VerifyException(
+                f"{self.name}: result type must have tuple result with {len(self.arguments)} children. {self.result.type.result} was given")
+        childIndices = [idx for c in self.arguments for idx in c.type.args.indices()]
+        for idx in self.result.type.args.indices():
+            if idx not in childIndices:
+                raise VerifyException(f"{self.name}: result type introduces index arg {idx} not found in children expressions")
+
+@irdl_op_definition
+class IndexedTupleOp(IRDLOperation):
+    name: str = "dtl.indexedTupleOp"
+
+    tuple: TensorExprType = operand_def(TensorExprType)
+    index: IntAttr = attr_def(IntAttr)
+    result: TensorExprType = result_def(TensorExprType)
+
+    def verify_(self):
+        assert isa(self.tuple.type, TensorExprType)
+        assert isa(self.tuple.type.result, IndexTupleStruct)
+        assert self.result.type.args == self.tuple.type.args
+        assert 0 <= self.index.data
+        assert self.index.data < len(self.tuple.type.result.children)
+        assert self.result.type.result == self.tuple.type.result.children.data[self.index.data]
+
+
+
+@irdl_op_definition
 class ConstTensorOp(IRDLOperation):
     name: str = "dtl.constTensorOp"
 
-    val: Annotated[Operand, builtin.AnyFloat]
-    shape: OpAttr[TensorResultType]
-    result: Annotated[OpResult, TensorExprType]
+    val: builtin.AnyFloat = operand_def(builtin.AnyFloat)
+    shape: TensorResultType = attr_def(TensorResultType)
+    result: TensorExprType = result_def(TensorExprType)
 
     def verify_(self):
-        assert isa(self.val.typ, builtin.AnyFloat)
-        assert self.result.typ.result == self.shape
+        assert isa(self.val.type, builtin.AnyFloat)
+        assert self.result.type.result == self.shape
 
     @staticmethod
     def get(value: Union[Operation, SSAValue], shape: TensorResultType) -> ConstTensorOp:
@@ -373,18 +423,70 @@ class ConstTensorOp(IRDLOperation):
 class DenseBackedTensorOp(IRDLOperation):
     name = "dtl.denseTensorOp"
 
-    val: Annotated[Operand, builtin.TensorType]
-    result: Annotated[OpResult, TensorExprType]
+    val: builtin.TensorType = operand_def(builtin.TensorType)
+    result: TensorExprType = result_def(TensorExprType)
 
     def verify_(self):
-        # assert isa(self.val.typ, builtin.AnyFloat)
-        # assert self.result.typ.result == self.shape
-        assert isa(self.result.typ.result, IndexShapeStruct)
-        assert isa(self.val.typ, TensorType)
-        for vs, ts in zip(self.result.typ.result.shape.data, self.val.typ.shape.data):
+        # assert isa(self.val.type, builtin.AnyFloat)
+        # assert self.result.type.result == self.shape
+        assert isa(self.result.type.result, IndexShapeStruct)
+        assert isa(self.val.type, TensorType)
+        for vs, ts in zip(self.result.type.result.shape.data, self.val.type.shape.data):
             if vs.dim != ts.value:
                 raise VerifyException(
-                    f"{self.val.typ.name} with shape {self.val.typ.shape} does not match {self.result.typ.name} with shape {self.result.typ.result.shape}")
+                    f"{self.val.type.name} with shape {self.val.type.shape} does not match {self.result.type.name} with shape {self.result.type.result.shape}")
+
+
+@irdl_attr_definition
+class ExecuteContextType(ParametrizedAttribute):
+    name = "dtl.executeContextType"
+    vectorSpaces: ParameterDef[ArrayAttr[UnknownVectorSpace]]
+
+
+@irdl_op_definition
+class ExecuteContextOp(IRDLOperation):
+    name = "dtl.executeContextOp"
+
+    extents: VarOperand = var_operand_def(builtin.IntegerType)
+    result: ExecuteContextType = result_def(ExecuteContextType)
+
+    def verify_(self):
+        assert len(self.extents) == len(self.result.type.vectorSpaces)
+
+@irdl_attr_definition
+class ExecuteArgsType(ParametrizedAttribute):
+    name = "dtl.executeArgsType"
+    vectorSpaces: ParameterDef[ArrayAttr[Index]]
+
+
+@irdl_op_definition
+class ExecuteArgsOp(IRDLOperation):
+    name = "dtl.executeArgsOp"
+
+    extents: VarOperand = var_operand_def(builtin.IntegerType)
+    result: ExecuteArgsType = result_def(ExecuteArgsType)
+
+    def verify_(self):
+        assert len(self.extents) == len(self.result.type.vectorSpaces)
+
+
+
+@irdl_op_definition
+class DenseExecuteTensorOp(IRDLOperation):
+    name = "dtl.denseExecuteOp"
+
+    expr: TensorExprType = operand_def(TensorExprType)
+    context: ExecuteContextOp = operand_def(ExecuteContextType)
+    args: ExecuteContextOp = operand_def(ExecuteArgsType)
+    data: memref.MemRefType = operand_def(memref.MemRefType[builtin.AnyFloat])
+
+    # result: TensorExprType = result_def(TensorExprType) No result type needed as this effectively stores into the given memref
+
+    def verify_(self):
+        # check context holds all the required vector spaces
+        # check args holds correct args given TensorExprType
+        # check data has correct shape given TensorExprType
+        pass
 
     @staticmethod
     def get(value: Union[Operation, SSAValue], shape: TensorResultType) -> ConstTensorOp:
@@ -392,53 +494,6 @@ class DenseBackedTensorOp(IRDLOperation):
             [IndexToVectorSpaceMap.new([ArrayAttr([])]), shape])
         value = SSAValue.get(value)
         return ConstTensorOp.build(operands=[value], attributes={'shape': shape}, result_types=[result_type])
-
-
-@irdl_op_definition
-class TupleOp(IRDLOperation):
-    name: str = "dtl.tupleOp"
-
-    arguments: Annotated[VarOperand, TensorExprType]
-    result: Annotated[OpResult, TensorExprType]
-
-    def verify_(self):
-        assert isa(self.result.typ, TensorExprType)
-        assert isa(self.result.typ.result, IndexTupleStruct)
-
-        for i, op in enumerate(self.arguments):
-            if self.result.typ.result.children.data[i] != op.typ.result:
-                raise VerifyException(f"{self.name}: Result type shape at tuple index {i} expected to be {op.typ.result} but found {self.result.typ.result.children.data[i]}")
-
-            for idx in op.typ.args.indices():
-                if idx not in self.result.typ.args.indices():
-                    raise VerifyException(f"{self.name}: tuple index {i} arg {idx} must be in result type args")
-                if op.typ.args.vector_space_of(idx) != self.result.typ.args.vector_space_of(idx):
-                    raise VerifyException(
-                        f"{self.name}: tuple index {i} arg {idx}:{op.typ.args.vector_space_of(idx)} must be in result type args but result has {idx}:{self.result.typ.args.vector_space_of(idx)}")
-
-        if len(self.result.typ.result.children) != len(self.arguments):
-            raise VerifyException(
-                f"{self.name}: result type must have tupe result with {len(self.result)} children. {self.result.typ.result} was given")
-        childIndices = [idx for c in self.arguments for idx in c.typ.args.indices()]
-        for idx in self.result.typ.args.indices():
-            if idx not in childIndices:
-                raise VerifyException(f"{self.name}: result type introduces index arg {idx} not found in children expressions")
-
-@irdl_op_definition
-class IndexedTupleOp(IRDLOperation):
-    name: str = "dtl.indexedTupleOp"
-
-    tuple: Annotated[Operand, TensorExprType]
-    index: OpAttr[IntAttr]
-    result: Annotated[OpResult, TensorExprType]
-
-    def verify_(self):
-        assert isa(self.tuple.typ, TensorExprType)
-        assert isa(self.tuple.typ.result, IndexTupleStruct)
-        assert self.result.typ.args == self.tuple.typ.args
-        assert 0 <= self.index.data
-        assert self.index.data < len(self.tuple.typ.result.children)
-        assert self.result.typ.result == self.tuple.typ.result.children.data[self.index.data]
 
 
 #
@@ -468,7 +523,7 @@ class IndexedTupleOp(IRDLOperation):
 #             raise Exception(
 #                 f"{LambdaYieldOp.name} expected as last operation of a {LambdaOp.name} node"
 #             )
-#         if ret.op.typ != self.return_type:
+#         if ret.op.type != self.return_type:
 #             raise Exception(
 #                 f"{LambdaOp.name} should have a {LambdaYieldOp.name} with the same return type"
 #             )
@@ -498,14 +553,14 @@ class IndexedTupleOp(IRDLOperation):
 #     res = ResultDef(ScalarType)
 #
 #     def verify_(self):
-#         if len(self.indices) != len(self.tensor.typ.dims.data):
+#         if len(self.indices) != len(self.tensor.type.dims.data):
 #             raise Exception(
 #                 f"An {IndexOp.name} should index a tensor with as many indices as its dimension"
 #             )
-#         for (idx, tensor_idx) in zip(self.indices, self.tensor.typ.dims.data):
-#             if idx.typ.dim.data != tensor_idx.data:
+#         for (idx, tensor_idx) in zip(self.indices, self.tensor.type.dims.data):
+#             if idx.type.dim.data != tensor_idx.data:
 #                 raise Exception(
-#                     f"Index of size {idx.typ.dim.data} do not match with dimension of size {tensor_idx.data}"
+#                     f"Index of size {idx.type.dim.data} do not match with dimension of size {tensor_idx.data}"
 #                 )
 
 #
@@ -517,15 +572,15 @@ class IndexedTupleOp(IRDLOperation):
 #     res = ResultDef(TensorType)
 #
 #     def verify_(self):
-#         if len(self.body.blocks[0].args) != len(self.res.typ.dims.data):
+#         if len(self.body.blocks[0].args) != len(self.res.type.dims.data):
 #             raise Exception(
 #                 f"An {DeIndexOp.name} should return a tensor with as many dimensions as the index it produces"
 #             )
 #         for (idx, tensor_idx) in zip(self.body.blocks[0].args,
-#                                      self.res.typ.dims.data):
-#             if idx.typ.dim.data != tensor_idx.data:
+#                                      self.res.type.dims.data):
+#             if idx.type.dim.data != tensor_idx.data:
 #                 raise Exception(
-#                     f"Index of size {idx.typ.dim.data} do not match with dimension of size {tensor_idx.data}"
+#                     f"Index of size {idx.type.dim.data} do not match with dimension of size {tensor_idx.data}"
 #                 )
 #
 #         ret = self.body.ops[-1]
@@ -559,17 +614,17 @@ class IndexedTupleOp(IRDLOperation):
 #                 f"A {SumOp.name} should sum over at least one index"
 #             )
 #         for idx in self.body.blocks[0].args:
-#             if not isinstance(idx.typ, IndexType):
+#             if not isinstance(idx.type, IndexType):
 #                 raise Exception(f"A {SumOp.name} may only sum over an Indextype (args of enclosed Block)")
-#         # if len(self.body.blocks[0].args) != len(self.res.typ.dims.data):
+#         # if len(self.body.blocks[0].args) != len(self.res.type.dims.data):
 #         #     raise Exception(
 #         #         f"A {SumOp.name} should return a tensor with as many dimensions as the index it produces"
 #         #     )
 #         # for (idx, tensor_idx) in zip(self.body.blocks[0].args,
-#         #                              self.res.typ.dims.data):
-#         #     if idx.typ.dim.data != tensor_idx.data:
+#         #                              self.res.type.dims.data):
+#         #     if idx.type.dim.data != tensor_idx.data:
 #         #         raise Exception(
-#         #             f"Index of size {idx.typ.dim.data} do not match with dimension of size {tensor_idx.data}"
+#         #             f"Index of size {idx.type.dim.data} do not match with dimension of size {tensor_idx.data}"
 #         #         )
 #
 #         ret = self.body.ops[-1]
@@ -636,4 +691,6 @@ class DTL:
         self.ctx.register_op(IndexedTupleOp)
 
         self.ctx.register_op(DenseBackedTensorOp)
+        self.ctx.register_op(ConstTensorOp)
+        self.ctx.register_op(DenseExecuteTensorOp)
 
