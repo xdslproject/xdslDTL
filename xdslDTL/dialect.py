@@ -663,34 +663,35 @@ class DenseExecuteTensorOp(IRDLOperation):
 #     res = ResultDef(ScalarType)
 
 
-@dataclass
-class DTL:
-    ctx: MLContext
-
-    def __post_init__(self):
-        self.ctx.register_attr(IndexShapeStruct)
-        self.ctx.register_attr(IndexTupleStruct)
-        self.ctx.register_attr(Index)
-        self.ctx.register_attr(KnownVectorSpace)
-        self.ctx.register_attr(UnknownVectorSpace)
-        self.ctx.register_attr(IndexToVectorSpaceMapPair)
-        self.ctx.register_attr(IndexToVectorSpaceMap)
-        # self.ctx.register_attr(TensorDimType)
-        self.ctx.register_attr(TensorExprType)
-        self.ctx.register_attr(NoneIndex)
-
-        self.ctx.register_op(IndexBindingOp)
-        self.ctx.register_op(IndexOp)
-        self.ctx.register_op(DeIndexOp)
-        self.ctx.register_op(SumOp)
-        self.ctx.register_op(ScalarAddOp)
-        self.ctx.register_op(ScalarSubOp)
-        self.ctx.register_op(ScalarMulOp)
-        self.ctx.register_op(ScalarConstOp)
-        self.ctx.register_op(TupleOp)
-        self.ctx.register_op(IndexedTupleOp)
-
-        self.ctx.register_op(DenseBackedTensorOp)
-        self.ctx.register_op(ConstTensorOp)
-        self.ctx.register_op(DenseExecuteTensorOp)
-
+DTL = Dialect(
+    [
+        IndexBindingOp,
+        IndexOp,
+        DeIndexOp,
+        SumOp,
+        ScalarAddOp,
+        ScalarSubOp,
+        ScalarMulOp,
+        ScalarConstOp,
+        TupleOp,
+        IndexedTupleOp,
+        DenseBackedTensorOp,
+        ConstTensorOp,
+        ExecuteContextOp,
+        ExecuteArgsOp,
+        DenseExecuteTensorOp
+    ],
+    [
+        IndexShapeStruct,
+        IndexTupleStruct,
+        Index,
+        NoneIndex,
+        KnownVectorSpace,
+        UnknownVectorSpace,
+        IndexToVectorSpaceMapPair,
+        IndexToVectorSpaceMap,
+        TensorExprType,
+        ExecuteContextType,
+        ExecuteArgsType
+    ],
+)

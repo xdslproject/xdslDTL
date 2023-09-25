@@ -1,5 +1,7 @@
-from dialect import *
+import functools
+import typing
 
+from xdsl.builder import Builder
 from xdsl.pattern_rewriter import RewritePattern, GreedyRewritePatternApplier, op_type_rewrite_pattern, PatternRewriter, PatternRewriteWalker
 from xdsl.ir import MLContext, Operation, SSAValue, Region, Block, Attribute
 from dataclasses import dataclass
@@ -8,6 +10,7 @@ import xdsl.dialects.memref as memref
 import xdsl.dialects.arith as arith
 import xdsl.dialects.scf as scf
 import xdsl.dialects.builtin as builtin
+from xdslDTL.dialect import *
 
 tensor_shape: dict[str, int] = {}
 tensor_shape["P"] = 3
@@ -17,11 +20,75 @@ tensor_type = builtin.f32
 
 output_buf = 1
 
+
+
+
 @dataclass
-class IndexRewriter(RewritePattern):
+class DTLDenseRewriter(RewritePattern):
+
+    @op_type_rewrite_pattern
+    def match_and_rewrite(self, exe_op: DenseExecuteTensorOp, rewriter: PatternRewriter):
+        exe_op.verify_()
+        builder = Builder(exe_op.parent)
+        ssa_out = self._get_expression(exe_op, {}, builder, rewriter)
+        print("hi")
+
+    @functools.singledispatchmethod
+    def _get_expression(self, expr, indexMap: typing.Dict[Index, SSAValue], builder: Builder, rewriter: PatternRewriter) -> SSAValue:
+        print(f"_get_expression: {expr.name} :===: {expr}")
+        for child in expr.operands:
+            self._get_expression(child.op, indexMap, builder, rewriter)
+        raise TypeError
+
+    @_get_expression.register
+    def _(self, expr: DenseBackedTensorOp, indexMap: typing.Dict[Index, SSAValue], builder: Builder, rewriter: PatternRewriter) -> SSAValue:
+        print(f"_get_expression: {expr.name} :===: {expr}")
+        spaces = [space for space in expr.result.type.result.shape]
+        if any(isinstance(s, UnknownVectorSpace) for s in spaces):
+            shape = memref.UnrankedMemrefType.from_type(f32)
+        elif all(isinstance(s, KnownVectorSpace) for s in spaces):
+            shape = memref.MemRefType.from_element_type_and_shape(f32, [s.dim.data for s in spaces])
+        else:
+            raise TypeError("DenseBackedTensorOp result Vector Spaces are not valid dtl vector spaces")
+        rewriter.modify_block_argument_type(expr.val, shape)
+        return expr.val
+
+    @_get_expression.register
+    def _(self, expr: IndexBindingOp, indexMap: typing.Dict[Index, SSAValue], builder: Builder, rewriter: PatternRewriter) -> SSAValue:
+        print(f"_get_expression: {expr.name} :===: {expr}")
+        new_map = {i: v for i, v in indexMap.items() if i not in expr.indices_map.indices()}
+        return self._get_expression(expr.expr.op, new_map, builder, rewriter)
+
+    def _match_indices_and_subexprs(self, indices, subexpr, indexMap):
+        if isinstance(subexpr, tuple):
+            return tuple([self._match_indices_and_subexprs(i,e, indexMap) for i,e in zip(indices, subexpr)])
+        elif isinstance(subexpr.type, memref.MemRefType | memref.UnrankedMemrefType):
+            if not isinstance(indices, IndexShapeStruct):
+                raise ValueError("Internal Compiler Error: IndexExpr indices do not match result of subExpr")
+            if not all([isinstance(i, Index | NoneIndex) for i in indices]):
+                raise ValueError("Internal Compiler Error: IndexExpr indices do not match result of subExpr")
+            v = memref.Load
+            return None # ExprIndexed(subexpr, [':' if i == dtl.NoneIndex else indexMap[i] for i in indices])
+
+    @_get_expression.register
+    def _(self, expr: IndexOp, indexMap: typing.Dict[Index, SSAValue], builder: Builder, rewriter: PatternRewriter) -> SSAValue:
+        print(f"_get_expression: {expr.name} :===: {expr}")
+        subexpr = self._get_expression(expr.expr.op, indexMap, builder, rewriter)
+        newSubexpr = self._match_indices_and_subexprs(expr.indices, subexpr, indexMap)
+        return newSubexpr
+
+
+
+@dataclass
+class IndexingOpRewriter(RewritePattern):
 
     @op_type_rewrite_pattern
     def match_and_rewrite(self, index_op: IndexOp, rewriter: PatternRewriter):
+        assert index_op.expr is not None
+        expr = index_op.expr
+        if isinstance(index_op.expr, DenseBackedTensorOp):
+            print("hi")
+
 
         load_op = memref.Load.get(index_op.tensor, index_op.indices)
         store_op = memref.Store.get(load_op, index_op.tensor, index_op.indices)
@@ -116,7 +183,7 @@ def transform_dtl(ctx: MLContext, op: Operation):
     applier = PatternRewriteWalker(GreedyRewritePatternApplier(
         [DeIndexOpRewriter(),
          # LambdaRewriter(),
-         IndexRewriter()]),
+         IndexingOpRewriter()]),
                                    walk_regions_first=False)
 
     applier.rewrite_module(op)
