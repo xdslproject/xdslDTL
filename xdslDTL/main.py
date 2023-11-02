@@ -2,10 +2,8 @@
 
 import argparse
 
-from transform import *
-
-from xdslDLT.dialect import DLT
-
+from xdsl.dialects.experimental.dlt import DLT
+from xdsl.dialects.experimental.dtl import DTL
 from xdsl.xdsl_opt_main import xDSLOptMain
 
 

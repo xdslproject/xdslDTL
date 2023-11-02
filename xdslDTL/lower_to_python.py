@@ -1,6 +1,11 @@
-from dialect import *
-from dataclasses import dataclass
+from dtl import *
+from dataclasses import dataclass, field
 from typing import List, Dict
+
+from xdsl.dialects.builtin import ModuleOp
+from xdsl.dialects.experimental.dtl import *
+from xdsl.ir import SSAValue, Operation
+
 
 def lower_to_python(module: ModuleOp) -> str:
     lowering = LowerToPython()
