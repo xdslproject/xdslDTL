@@ -38,7 +38,7 @@ class DTLDenseRewriter(RewritePattern):
         print(f"_get_expression: {expr.name} :===: {expr}")
         for child in expr.operands:
             self._get_expression(child.op, indexMap, builder, rewriter)
-        raise TypeError
+        raise TypeError(f"expr has unsupported class: {expr.__class__}")
 
     @_get_expression.register
     def _(self, expr: DenseBackedTensorOp, indexMap: typing.Dict[Index, SSAValue], builder: Builder, rewriter: PatternRewriter) -> SSAValue:
@@ -65,18 +65,27 @@ class DTLDenseRewriter(RewritePattern):
         elif isinstance(subexpr.type, memref.MemRefType | memref.UnrankedMemrefType):
             if not isinstance(indices, IndexShapeStruct):
                 raise ValueError("Internal Compiler Error: IndexExpr indices do not match result of subExpr")
-            if not all([isinstance(i, Index | NoneIndex) for i in indices]):
+            if not all([isinstance(i, Index | NoneIndex) for i in indices.shape]):
                 raise ValueError("Internal Compiler Error: IndexExpr indices do not match result of subExpr")
             v = memref.Load
             return None # ExprIndexed(subexpr, [':' if i == dtl.NoneIndex else indexMap[i] for i in indices])
 
     @_get_expression.register
-    def _(self, expr: IndexOp, indexMap: typing.Dict[Index, SSAValue], builder: Builder, rewriter: PatternRewriter) -> SSAValue:
+    def _(self, expr: IndexOp, indexMap: typing.Dict[Index, SSAValue], builder: Builder,
+          rewriter: PatternRewriter) -> SSAValue:
         print(f"_get_expression: {expr.name} :===: {expr}")
         subexpr = self._get_expression(expr.expr.op, indexMap, builder, rewriter)
         newSubexpr = self._match_indices_and_subexprs(expr.indices, subexpr, indexMap)
         return newSubexpr
 
+
+    @_get_expression.register
+    def _(self, expr: ScalarMulOp, indexMap: typing.Dict[Index, SSAValue], builder: Builder,
+          rewriter: PatternRewriter) -> SSAValue:
+        print(f"_get_expression: {expr.name} :===: {expr}")
+        lsubexpr = self._get_expression(expr.lhs.op, indexMap, builder, rewriter)
+        rsubexpr = self._get_expression(expr.rhs.op, indexMap, builder, rewriter)
+        return arith.Mulf(lsubexpr, rsubexpr)
 
 
 @dataclass

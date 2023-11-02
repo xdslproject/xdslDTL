@@ -663,7 +663,7 @@ class DenseExecuteTensorOp(IRDLOperation):
 #     res = ResultDef(ScalarType)
 
 
-DTL = Dialect(
+DTL = Dialect("DTL",
     [
         IndexBindingOp,
         IndexOp,

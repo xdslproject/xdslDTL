@@ -16,27 +16,34 @@ class DimensionType(ParametrizedAttribute):
         names = [dim.data for dim in self.dim_names.data]
         assert names == sorted(names), "dlt.dimensionType: dim names must be alphabetically sorted"
 
+@irdl_attr_definition
+class StructField(ParametrizedAttribute):
+    name = "dlt.structField"
+    field_name: ParameterDef[builtin.StringAttr]
+    field_type: ParameterDef[DimensionType | builtin.TypeAttribute]
+
 
 @irdl_attr_definition
 class StructType(ParametrizedAttribute):
     name = "dlt.structType"
     struct_name: ParameterDef[builtin.StringAttr]
-    child_names: ParameterDef[builtin.ArrayAttr[builtin.StringAttr]]
-    child_types: ParameterDef[builtin.ArrayAttr[DimensionType]]
+    fields: ParameterDef[builtin.ArrayAttr[StructField]]
+    # child_names: ParameterDef[builtin.ArrayAttr[builtin.StringAttr]]
+    # child_types: ParameterDef[builtin.ArrayAttr[DimensionType]]
 
     def verify(self) -> None:
-        names = [child.data for child in self.child_names.data]
+        names = [child.field_name.data for child in self.fields]
         assert names == sorted(names), "dlt.structType: fields must be sorted alphabetically"
-        assert len(self.child_names) == len(set(self.child_names)), "dlt.structType: duplicate names found"
-        assert len(self.child_names) == len(self.child_types), "dlt.structType: names must match types"
+        assert len(names) == len(set(names)), "dlt.structType: duplicate names found"
 
         # fields look like 'bot.Robot:pos.Vec3:x'
         # check that all instances of a struct name have the same fields
         # make a map of struct name to fields found
         struct_map = {}
         struct_names = set()
-        for field in self.child_names:
-            parts = field.data.split('.')
+        for field in self.fields:
+            field_name = field.field_name.data
+            parts = field_name.split('.')
             for part in parts:
                 s_name, s_field = part.split(':',1)
                 struct_names += s_name
@@ -45,7 +52,7 @@ class StructType(ParametrizedAttribute):
                 struct_map[s_name] += s_field
         for struct in struct_names:
             ident = struct + ':'
-            fields = [f.data for f in self.child_names if ident in f.data]
+            fields = [f.field_name.data for f in self.fields if ident in f.field_name.data]
             parent_map = {}
             for field in fields:
                 parts = field.split(ident)
@@ -114,6 +121,10 @@ DLT = Dialect(
         GetterOp
     ],
     [
-        DataTreeType
+        DimensionType,
+        StructField,
+        StructType,
+        DataTreeType,
+        DenseType,
     ],
 )
