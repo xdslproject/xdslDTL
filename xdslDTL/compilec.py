@@ -12,14 +12,11 @@ from xdsl.printer import Printer
 
 
 
-def compile(functions: list[func.FuncOp], lib_output: str, header_out=None):
+def compile(module: builtin.ModuleOp, lib_output: str, header_out=None):
     # if header_out==None:
     #     header_out = lib_output.removesuffix(".o") + ".h"
 
     print(f"Compile to Binary: {lib_output}")
-
-    module = builtin.ModuleOp(functions)
-    module.verify()
 
     print("Module:")
     print(module)
