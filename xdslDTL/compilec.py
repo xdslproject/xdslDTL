@@ -42,6 +42,7 @@ def compile(module: builtin.ModuleOp, lib_output: str, header_out=None):
 
     print("mlir-opt:")
     passes = [
+        "--convert-math-to-funcs",
         "--convert-scf-to-cf",
         "--convert-cf-to-llvm",
         "--convert-func-to-llvm",
@@ -53,37 +54,51 @@ def compile(module: builtin.ModuleOp, lib_output: str, header_out=None):
         "--finalize-memref-to-llvm",
         "--reconcile-unrealized-casts",
     ]
-
+    print("command:")
+    print(' '.join(['mlir-opt'] + passes))
     process_opt = subprocess.Popen(['mlir-opt'] + passes, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     out, err = process_opt.communicate(res.getvalue().encode('utf8'))
     process_opt.wait()
-    print(out)
-    print("ERRS:")
-    print(err)
+    print("stdout:")
+    print(out.decode('utf8'))
+    print("stderr:")
+    print(err.decode('utf8') if err is not None else None)
 
     print("mlir-translate")
     process_translate = subprocess.Popen(['mlir-translate', '--mlir-to-llvmir'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     out, err = process_translate.communicate(out)
     process_translate.wait()
-    print(out)
-
-    fd, path = tempfile.mkstemp()
+    print("stdout:")
+    print(out.decode('utf8'))
+    print("stderr:")
+    print(err.decode('utf8') if err is not None else None)
+    fd, path = tempfile.mkstemp(suffix=".ll")
     print(f"Making tmp llvm-IR file: {path}")
     try:
         with os.fdopen(fd, 'wb') as tmp:
             tmp.write(out)
 
-            clang_args = [ '-o', lib_output]
-            clang_args.append("-c")
-
+            clang_args = ["clang"]
+            clang_args.extend([ '-o', lib_output])
+            clang_args.append('-shared')
+            # clang_args.append("-c")
+            # clang_args.append("-v")
+            clang_args.append("-g")
             clang_args.append(path)
 
-            print("clang")
-            process_clang = subprocess.Popen(['clang'] + clang_args, stdin=subprocess.PIPE,
-                                                 stdout=subprocess.PIPE)
+
+            print(" ".join(clang_args))
+            process_clang = subprocess.Popen(clang_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            # out, err = process_clang.communicate(out)
+            # print("stdout:")
+            # print(out.decode('utf8') if out is not None else None)
+            # print("stderr:")
+            # print(err.decode('utf8') if err is not None else None)
             process_clang.wait()
+
     finally:
-        os.remove(path)
+        # os.remove(path)
+        pass
 
     print("done")
 
