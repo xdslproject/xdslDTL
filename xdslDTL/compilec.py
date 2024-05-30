@@ -84,6 +84,7 @@ def compile(module: builtin.ModuleOp, lib_output: str, header_out=None):
             # clang_args.append("-c")
             # clang_args.append("-v")
             clang_args.append("-g")
+            clang_args.append("-O3")
             clang_args.append(path)
 
 
