@@ -19,7 +19,7 @@ def compile(module: builtin.ModuleOp, lib_output: str, header_out=None):
     print(f"Compile to Binary: {lib_output}")
 
     print("Module:")
-    print(module)
+    # print(module)
     # print("args")
     # print(func.args)
     # print("results")
