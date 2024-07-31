@@ -12,35 +12,34 @@ from xdsl.printer import Printer
 
 
 
-def compile(module: builtin.ModuleOp, lib_output: str, header_out=None):
+def compile(module: builtin.ModuleOp, lib_output: str, header_out=None, verbose = 2):
     # if header_out==None:
     #     header_out = lib_output.removesuffix(".o") + ".h"
 
-    print(f"Compile to Binary: {lib_output}")
+    if verbose > 0:
+        print(f"Compile to Binary: {lib_output}")
 
-    print("Module:")
-    # print(module)
-    # print("args")
-    # print(func.args)
-    # print("results")
-    # print(func.get_return_op())
-    # print("func type")
-    # print(func.function_type)
-    #
-    print("mlir output:")
+    if verbose > 1:
+        print("Module:")
+        print(module)
+
+    if verbose > 1:
+        print("mlir output:")
     res = StringIO()
     printer = Printer(print_generic_format=False, stream=res)
     printer.print(module)
-    print(res.getvalue())
+    if verbose > 1:
+        print(res.getvalue())
 
     fd, path = tempfile.mkstemp()
-    print(f"Making tmp mlir - IR file: {path}")
+    if verbose > 0:
+        print(f"Making tmp mlir - IR file: {path}")
     with os.fdopen(fd, 'wb') as tmp:
         tmp.write(res.getvalue().encode('utf8'))
 
 
-
-    print("mlir-opt:")
+    if verbose > 1:
+        print("mlir-opt:")
     passes = [
         "--convert-math-to-funcs",
         "--convert-scf-to-cf",
@@ -54,26 +53,31 @@ def compile(module: builtin.ModuleOp, lib_output: str, header_out=None):
         "--finalize-memref-to-llvm",
         "--reconcile-unrealized-casts",
     ]
-    print("command:")
-    print(' '.join(['mlir-opt'] + passes))
+    if verbose > 1:
+        print("command:")
+        print(' '.join(['mlir-opt'] + passes))
     process_opt = subprocess.Popen(['mlir-opt'] + passes, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     out, err = process_opt.communicate(res.getvalue().encode('utf8'))
     process_opt.wait()
-    print("stdout:")
-    print(out.decode('utf8'))
-    print("stderr:")
-    print(err.decode('utf8') if err is not None else None)
+    if verbose > 1:
+        print("stdout:")
+        print(out.decode('utf8'))
+        print("stderr:")
+        print(err.decode('utf8') if err is not None else None)
 
-    print("mlir-translate")
+    if verbose > 1:
+        print("mlir-translate")
     process_translate = subprocess.Popen(['mlir-translate', '--mlir-to-llvmir'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     out, err = process_translate.communicate(out)
     process_translate.wait()
-    print("stdout:")
-    print(out.decode('utf8'))
-    print("stderr:")
-    print(err.decode('utf8') if err is not None else None)
+    if verbose > 1:
+        print("stdout:")
+        print(out.decode('utf8'))
+        print("stderr:")
+        print(err.decode('utf8') if err is not None else None)
     fd, path = tempfile.mkstemp(suffix=".ll")
-    print(f"Making tmp llvm-IR file: {path}")
+    if verbose > 0:
+        print(f"Making tmp llvm-IR file: {path}")
     try:
         with os.fdopen(fd, 'wb') as tmp:
             tmp.write(out)
@@ -87,8 +91,8 @@ def compile(module: builtin.ModuleOp, lib_output: str, header_out=None):
             clang_args.append("-O3")
             clang_args.append(path)
 
-
-            print(" ".join(clang_args))
+            if verbose > 1:
+                print(" ".join(clang_args))
             process_clang = subprocess.Popen(clang_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             # out, err = process_clang.communicate(out)
             # print("stdout:")
@@ -101,7 +105,8 @@ def compile(module: builtin.ModuleOp, lib_output: str, header_out=None):
         # os.remove(path)
         pass
 
-    print("done")
+    if verbose > 0:
+        print("Done compiling with mlir / clang")
 
 
 
